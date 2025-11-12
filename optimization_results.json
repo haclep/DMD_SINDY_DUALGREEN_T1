@@ -1,0 +1,21 @@
+{
+  "best_params": {
+    "prediction_horizon": 5,
+    "entry_threshold": 2.0,
+    "take_profit_pct": 3.0,
+    "stop_loss_pct": -3.0,
+    "max_holding_days": 10,
+    "profit_window": 7
+  },
+  "best_performance": {
+    "total_return": 2.8819541436150016,
+    "sharpe_ratio": 2.285988468628101,
+    "max_drawdown": -0.18548227183548985,
+    "win_rate": 0.6551724137931034,
+    "num_trades": 58
+  },
+  "optimization_date": "2025-11-11T21:26:11.071812",
+  "data_file": "111025/U_daily.csv",
+  "target_metric": "log_price_ratio_sma20",
+  "total_iterations": 100
+}
