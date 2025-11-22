@@ -1,0 +1,16 @@
+{
+  "optimization_date": "2025-11-13T17:08:19.326189",
+  "total_stocks": 1,
+  "successful": 1,
+  "failed": 0,
+  "results": {
+    "U": {
+      "success": true,
+      "model_path": "optimized_models_U.pkl",
+      "results_path": "optimization_results_U.json",
+      "best_params": {
+        "prediction_horizon": 10,
+        "entry_threshold": 0.5,
+        "take_profit_pct": 6.0,
+        "stop_loss_pct": -4.0,
+        "max_holding_days": 

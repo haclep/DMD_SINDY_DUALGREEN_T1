@@ -25,11 +25,14 @@ from SINDyPredictor import RobustSINDySystem
 class PersistentModelOptimizer:
     """
     Optimizer that saves trained models for exact reproduction
+    
+    MODIFIED FOR MULTI-STOCK: Now accepts prediction_horizon parameter
     """
     
-    def __init__(self, data_file, target_metric='log_price_ratio_sma20'):
+    def __init__(self, data_file, target_metric='log_price_ratio_sma20', prediction_horizon=10):
         self.data_file = data_file
         self.target_metric = target_metric
+        self.prediction_horizon = prediction_horizon  # ← ADDED: Store stock-specific horizon
         
         # Load and prepare data
         self.df = self._load_data(data_file)
@@ -59,7 +62,7 @@ class PersistentModelOptimizer:
                                  profit_windows=[3, 4, 5, 6, 7],
                                  n_iterations=200,
                                  model_save_path='optimized_models.pkl',
-                                 results_save_path='optimization_results.json' ):
+                                 results_save_path='optimization_results.json'):
         """
         Run optimization and save the exact trained models
         """
@@ -109,18 +112,20 @@ class PersistentModelOptimizer:
         """
         Train DMD and SINDy models ONCE with optimal settings
         These exact models will be reused in backtesting
+        
+        MODIFIED FOR MULTI-STOCK: Uses self.prediction_horizon instead of hardcoded value
         """
         
-        print("Training DMD (Linear) Model...")
+        print(f"Training DMD (Linear) Model with {self.prediction_horizon}-day horizon...")  # ← MODIFIED
         self.dmd_system = RobustDMDSystem(
             target_metric=self.target_metric,
-            prediction_horizon=10  # We'll optimize this later
+            prediction_horizon=self.prediction_horizon  # ← CHANGED: Use instance variable
         )
         
         # Train DMD with moderate complexity to avoid overfitting
         self.dmd_system.comprehensive_optimize(
             self.df, 
-            max_features=8,  # Reduced to prevent overfitting
+            max_features=10,  # Reduced to prevent overfitting
             n_feature_trials=300  # Reduced for speed
         )
         
@@ -128,19 +133,20 @@ class PersistentModelOptimizer:
         dmd_pred, dmd_actual, dmd_directional = self.dmd_system.final_training_and_evaluation(self.df)
         
         print(f"✅ DMD trained successfully")
+        print(f"   Horizon: {self.prediction_horizon} days")  # ← ADDED
         print(f"   Features: {len(self.dmd_system.best_features)}")
         print(f"   Best params: {self.dmd_system.best_params}")
         
-        print("\nTraining SINDy (Nonlinear) Model...")
+        print(f"\nTraining SINDy (Nonlinear) Model with {self.prediction_horizon}-day horizon...")  # ← MODIFIED
         self.sindy_system = RobustSINDySystem(
             target_metric=self.target_metric,
-            prediction_horizon=10  # We'll optimize this later
+            prediction_horizon=self.prediction_horizon  # ← CHANGED: Use instance variable
         )
         
         # Train SINDy with moderate complexity
         self.sindy_system.comprehensive_optimize(
             self.df,
-            max_features=8,  # Slightly more features for nonlinear
+            max_features=10,  # Slightly more features for nonlinear
             n_feature_trials=300
         )
         
@@ -148,6 +154,7 @@ class PersistentModelOptimizer:
         sindy_pred, sindy_actual, sindy_directional = self.sindy_system.final_training_and_evaluation(self.df)
         
         print(f"✅ SINDy trained successfully")
+        print(f"   Horizon: {self.prediction_horizon} days")  # ← ADDED
         print(f"   Features: {len(self.sindy_system.best_features)}")
         print(f"   Best params: {self.sindy_system.best_params}")
         
@@ -164,14 +171,22 @@ class PersistentModelOptimizer:
                                   n_iterations):
         """
         Optimize strategy parameters using pre-trained models
+        
+        MODIFIED FOR MULTI-STOCK: prediction_horizon is FIXED to what models were trained with.
+        The prediction_horizons parameter is ignored since models are already trained for a specific horizon.
         """
+        
+        # ← ADDED: Warning about fixed prediction horizon
+        print(f"⚠️  NOTE: Prediction horizon is FIXED to {self.prediction_horizon} days")
+        print(f"   (Models were trained for this specific horizon)")
+        print(f"   Optimizing other parameters only...")
         
         results = []
         
         for iteration in range(n_iterations):
             # Random parameter selection
             params = {
-                'prediction_horizon': np.random.choice(prediction_horizons),
+                'prediction_horizon': self.prediction_horizon,  # ← CHANGED: Use fixed horizon
                 'entry_threshold': np.random.choice(entry_thresholds),
                 'take_profit_pct': np.random.choice(take_profit_pcts),
                 'stop_loss_pct': np.random.choice(stop_loss_pcts),
@@ -366,6 +381,8 @@ class PersistentModelOptimizer:
     def _save_trained_models(self, filepath, best_result):
         """
         Save the exact trained models and optimal parameters
+        
+        MODIFIED FOR MULTI-STOCK: Explicitly saves prediction_horizon metadata
         """
         
         model_package = {
@@ -376,6 +393,7 @@ class PersistentModelOptimizer:
             'dmd_feature_scaler': self.dmd_system.feature_scaler,
             'dmd_target_scaler': self.dmd_system.target_scaler,
             'dmd_target_metric': self.dmd_system.target_metric,
+            'dmd_prediction_horizon': self.dmd_system.prediction_horizon,  # ← ADDED
             
             # SINDy System
             'sindy_model': self.sindy_system.best_model,
@@ -386,6 +404,7 @@ class PersistentModelOptimizer:
             'sindy_feature_scaler': self.sindy_system.feature_scaler,
             'sindy_target_scaler': self.sindy_system.target_scaler,
             'sindy_target_metric': self.sindy_system.target_metric,
+            'sindy_prediction_horizon': self.sindy_system.prediction_horizon,  # ← ADDED
             
             # Optimal Strategy Parameters
             'optimal_params': best_result['params'],
@@ -394,6 +413,7 @@ class PersistentModelOptimizer:
             'optimization_date': datetime.now().isoformat(),
             'data_file': self.data_file,
             'target_metric': self.target_metric,
+            'training_prediction_horizon': self.prediction_horizon,  # ← ADDED: Explicit field
             'optimization_performance': {
                 'total_return': best_result['total_return'],
                 'sharpe_ratio': best_result['sharpe_ratio'],
@@ -468,6 +488,8 @@ class PersistentModelBacktester:
     def load_models(self):
         """
         Load the exact pre-trained models
+        
+        MODIFIED FOR MULTI-STOCK: Shows training prediction horizon
         """
         
         print(f"📦 Loading pre-trained models from {self.model_path}")
@@ -475,10 +497,14 @@ class PersistentModelBacktester:
         with open(self.model_path, 'rb') as f:
             model_package = pickle.load(f)
         
+        # ← ADDED: Get training horizon from package
+        training_horizon = model_package.get('training_prediction_horizon', 
+                                            model_package['optimal_params']['prediction_horizon'])
+        
         # Reconstruct DMD system
         self.dmd_system = RobustDMDSystem(
             target_metric=model_package['dmd_target_metric'],
-            prediction_horizon=model_package['optimal_params']['prediction_horizon']
+            prediction_horizon=training_horizon  # ← CHANGED: Use training horizon
         )
         self.dmd_system.best_model = model_package['dmd_model']
         self.dmd_system.best_features = model_package['dmd_features']
@@ -489,7 +515,7 @@ class PersistentModelBacktester:
         # Reconstruct SINDy system
         self.sindy_system = RobustSINDySystem(
             target_metric=model_package['sindy_target_metric'],
-            prediction_horizon=model_package['optimal_params']['prediction_horizon']
+            prediction_horizon=training_horizon  # ← CHANGED: Use training horizon
         )
         self.sindy_system.best_model = model_package['sindy_model']
         self.sindy_system.best_features = model_package['sindy_features']
@@ -505,6 +531,8 @@ class PersistentModelBacktester:
         self.models_loaded = True
         
         print(f"✅ Models loaded successfully!")
+        print(f"\n🔬 Training Info:")  # ← ADDED
+        print(f"   Models trained for: {training_horizon}-day prediction horizon")  # ← ADDED
         print(f"\n📊 Optimal Parameters:")
         for key, value in self.optimal_params.items():
             print(f"   {key}: {value}")
@@ -716,13 +744,13 @@ def run_full_optimization(data_file='your_data.csv'):
     optimizer = PersistentModelOptimizer(data_file)
     
     best_result = optimizer.optimize_and_save_models(
-        prediction_horizons=[5, 7, 10, 14],
-        entry_thresholds=[0.5, 1.0, 1.5, 2.0],
-        take_profit_pcts=[3.0, 5.0, 7.0, 10.0],
-        stop_loss_pcts=[-2.0, -3.0, -5.0],
-        max_holding_days_list=[7, 10, 14, 20],
-        profit_windows=[3, 5, 7],
-        n_iterations=50,  # Increase for better results
+        prediction_horizons=[5, 6, 7, 8, 9, 10, 11, 12, 13, 14],
+        entry_thresholds=[0.3, 0.5, 0.7, 0.9, 1.0, 1.2, 1.3, 1.5, 2.0, 2.5, 3.0, 3.5, 4.0, 4.5, 5.0],
+        take_profit_pcts=[3.0, 3.5, 4.0, 4.5, 5.0, 5.5, 6.0, 6.5, 7.0, 8.0, 9.0, 10.0],
+        stop_loss_pcts=[-2.0, -2.5, -3.0, -3.5, -4.0, -4.5, -5.0, -5.5, -6.0, -7.0],
+        max_holding_days_list=[5,6,7,8,9, 10,11,12,13, 14, 20],
+        profit_windows=[3, 4, 5, 6, 7],
+        n_iterations=200,
         model_save_path='optimized_models.pkl',
         results_save_path='optimization_results.json'
     )
