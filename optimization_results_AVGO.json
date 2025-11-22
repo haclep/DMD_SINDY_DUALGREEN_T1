@@ -1,0 +1,21 @@
+{
+  "best_params": {
+    "prediction_horizon": 10,
+    "entry_threshold": 3.0,
+    "take_profit_pct": 7.0,
+    "stop_loss_pct": -4.5,
+    "max_holding_days": 9,
+    "profit_window": 6
+  },
+  "best_performance": {
+    "total_return": 2.2113581243312352,
+    "sharpe_ratio": 1.1727585876465398,
+    "max_drawdown": -0.2578266248269152,
+    "win_rate": 0.6065573770491803,
+    "num_trades": 61
+  },
+  "optimization_date": "2025-11-13T22:43:58.837286",
+  "data_file": "111025/AVGO_daily.csv",
+  "target_metric": "log_price_ratio_sma20",
+  "total_iterations": 200
+}

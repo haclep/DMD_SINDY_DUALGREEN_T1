@@ -1,0 +1,21 @@
+{
+  "best_params": {
+    "prediction_horizon": 10,
+    "entry_threshold": 5.0,
+    "take_profit_pct": 6.5,
+    "stop_loss_pct": -5.0,
+    "max_holding_days": 14,
+    "profit_window": 5
+  },
+  "best_performance": {
+    "total_return": 1.2917980682922874,
+    "sharpe_ratio": 1.7565920699094606,
+    "max_drawdown": -0.2442026516150841,
+    "win_rate": 0.7,
+    "num_trades": 10
+  },
+  "optimization_date": "2025-11-13T21:55:37.047940",
+  "data_file": "111025/IONQ_daily.csv",
+  "target_metric": "log_price_ratio_sma20",
+  "total_iterations": 200
+}
